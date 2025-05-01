@@ -3,36 +3,45 @@ package services
 import (
 	"encoding/json"
 	"net/http"
+
+	log "go-people-api/log"
+	"go-people-api/models"
 )
 
-type Enriched struct {
-	Age         int
-	Gender      string
-	Nationality string
-}
+var httpGet = http.Get
 
-func Enrich(name string) (*Enriched, error) {
-	e := &Enriched{}
+func Enrich(name string) (*models.Person, error) {
+	log.Logger.Debug("Starting enrichment for name: ", name)
+	e := &models.Person{}
 
-	if resp, err := http.Get("https://api.agify.io/?name=" + name); err == nil {
+	// Age
+	if resp, err := httpGet("https://api.agify.io/?name=" + name); err == nil {
 		defer resp.Body.Close()
 		var res map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&res)
 		if age, ok := res["age"].(float64); ok {
 			e.Age = int(age)
 		}
+		log.Logger.Debug("Age fetched: ", e.Age)
+	} else {
+		log.Logger.Warn("Failed to fetch age: ", err)
 	}
 
-	if resp, err := http.Get("https://api.genderize.io/?name=" + name); err == nil {
+	// Gender
+	if resp, err := httpGet("https://api.genderize.io/?name=" + name); err == nil {
 		defer resp.Body.Close()
 		var res map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&res)
 		if gender, ok := res["gender"].(string); ok {
 			e.Gender = gender
 		}
+		log.Logger.Debug("Gender fetched: ", e.Gender)
+	} else {
+		log.Logger.Warn("Failed to fetch gender: ", err)
 	}
 
-	if resp, err := http.Get("https://api.nationalize.io/?name=" + name); err == nil {
+	// Nationality
+	if resp, err := httpGet("https://api.nationalize.io/?name=" + name); err == nil {
 		defer resp.Body.Close()
 		var res map[string]interface{}
 		json.NewDecoder(resp.Body).Decode(&res)
@@ -43,7 +52,11 @@ func Enrich(name string) (*Enriched, error) {
 				}
 			}
 		}
+		log.Logger.Debug("Nationality fetched: ", e.Nationality)
+	} else {
+		log.Logger.Warn("Failed to fetch nationality: ", err)
 	}
 
+	log.Logger.Info("Enrichment complete for ", name, ": ", *e)
 	return e, nil
 }

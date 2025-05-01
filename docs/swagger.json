@@ -1,0 +1,253 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API для работы с людьми, включая обогащение через внешние сервисы",
+        "title": "People API",
+        "contact": {
+            "name": "API Support",
+            "email": "support@example.com"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8086",
+    "basePath": "/",
+    "paths": {
+        "/people": {
+            "get": {
+                "description": "Возвращает список людей с возможностью фильтрации по имени",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "people"
+                ],
+                "summary": "Получить список людей",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Имя для фильтрации",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Ограничение количества",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Смещение",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Person"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Обогащает данные через внешние API и сохраняет в БД",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "people"
+                ],
+                "summary": "Создать нового человека",
+                "parameters": [
+                    {
+                        "description": "Информация о человеке",
+                        "name": "person",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Person"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Person"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/people/{id}": {
+            "put": {
+                "description": "Обновляет имя, фамилию и отчество по ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "people"
+                ],
+                "summary": "Обновить данные человека",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID человека",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные для обновления",
+                        "name": "person",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.Person"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет человека по ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "people"
+                ],
+                "summary": "Удалить человека",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID человека",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "models.Person": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "integer"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nationality": {
+                    "type": "string"
+                },
+                "patronymic": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,167 @@
+basePath: /
+definitions:
+  models.Person:
+    properties:
+      age:
+        type: integer
+      gender:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      nationality:
+        type: string
+      patronymic:
+        type: string
+      surname:
+        type: string
+    type: object
+host: localhost:8086
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: API для работы с людьми, включая обогащение через внешние сервисы
+  title: People API
+  version: "1.0"
+paths:
+  /people:
+    get:
+      consumes:
+      - application/json
+      description: Возвращает список людей с возможностью фильтрации по имени
+      parameters:
+      - description: Имя для фильтрации
+        in: query
+        name: name
+        type: string
+      - description: Ограничение количества
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Person'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Получить список людей
+      tags:
+      - people
+    post:
+      consumes:
+      - application/json
+      description: Обогащает данные через внешние API и сохраняет в БД
+      parameters:
+      - description: Информация о человеке
+        in: body
+        name: person
+        required: true
+        schema:
+          $ref: '#/definitions/models.Person'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Person'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Создать нового человека
+      tags:
+      - people
+  /people/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Удаляет человека по ID
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Удалить человека
+      tags:
+      - people
+    put:
+      consumes:
+      - application/json
+      description: Обновляет имя, фамилию и отчество по ID
+      parameters:
+      - description: ID человека
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные для обновления
+        in: body
+        name: person
+        required: true
+        schema:
+          $ref: '#/definitions/models.Person'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Обновить данные человека
+      tags:
+      - people
+swagger: "2.0"
