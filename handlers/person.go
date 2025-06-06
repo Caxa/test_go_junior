@@ -175,3 +175,96 @@ func UpdatePerson(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"updated": id})
 }
+
+// PatchPerson godoc
+// @Summary Частично обновить данные человека
+// @Description Обновляет одно или несколько полей по ID
+// @Tags people
+// @Accept json
+// @Produce json
+// @Param id path int true "ID человека"
+// @Param person body models.Person true "Поля для обновления"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /people/{id} [patch]
+func PatchPerson(c *gin.Context) {
+	id := c.Param("id")
+
+	var input models.Person
+	if err := c.ShouldBindJSON(&input); err != nil {
+		log.Logger.Warn("Invalid PATCH input: ", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Logger.Infof("Patching person %s with %+v", id, input)
+
+	// Строим запрос динамически
+	updateFields := []string{}
+	args := []interface{}{}
+	argID := 1
+
+	if input.Name != "" {
+		updateFields = append(updateFields, "name = $"+strconv.Itoa(argID))
+		args = append(args, input.Name)
+		argID++
+	}
+	if input.Surname != "" {
+		updateFields = append(updateFields, "surname = $"+strconv.Itoa(argID))
+		args = append(args, input.Surname)
+		argID++
+	}
+	if input.Patronymic != "" {
+		updateFields = append(updateFields, "patronymic = $"+strconv.Itoa(argID))
+		args = append(args, input.Patronymic)
+		argID++
+	}
+
+	if len(updateFields) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+		return
+	}
+
+	query := "UPDATE people SET " + join(updateFields, ", ") + " WHERE id = $" + strconv.Itoa(argID)
+	args = append(args, id)
+
+	_, err := db.DB.Exec(query, args...)
+	if err != nil {
+		log.Logger.Error("Patch failed: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Patch failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"patched": id})
+}
+
+// Вспомогательная функция join (аналог strings.Join для []string)
+func join(elems []string, sep string) string {
+	result := ""
+	for i, s := range elems {
+		if i > 0 {
+			result += sep
+		}
+		result += s
+	}
+	return result
+}
+func GetPersonByID(c *gin.Context) {
+	id := c.Param("id")
+	log.Logger.Infof("Fetching person with ID: %s", id)
+
+	var p models.Person
+	err := db.DB.QueryRow(`
+		SELECT id, name, surname, patronymic, gender, age, nationality
+		FROM people WHERE id = $1
+	`, id).Scan(&p.ID, &p.Name, &p.Surname, &p.Patronymic, &p.Gender, &p.Age, &p.Nationality)
+
+	if err != nil {
+		log.Logger.Warn("Person not found: ", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Person not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, p)
+}

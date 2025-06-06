@@ -1,9 +1,11 @@
 package main
 
 import (
+	"os"
+
 	"go-people-api/db"
 	"go-people-api/handlers"
-	log "go-people-api/log" // добавлено
+	log "go-people-api/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -15,26 +17,36 @@ import (
 )
 
 func main() {
+
 	log.Init()
 
-	log.Logger.Info("Loading environment variables...")
-	godotenv.Load()
+	log.Logger.Info("Loading environment variables…")
+	if err := godotenv.Load(); err != nil {
+		log.Logger.Warn("No .env file found or failed to load")
+	}
 
-	log.Logger.Info("Initializing database...")
+	log.Logger.Info("Initializing database…")
 	if err := db.Init(); err != nil {
 		log.Logger.Fatal("DB connection failed: ", err)
 	}
 
 	r := gin.Default()
 
-	log.Logger.Info("Setting up routes...")
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.POST("/people", handlers.CreatePerson)
 	r.GET("/people", handlers.GetPeople)
-	r.DELETE("/people/:id", handlers.DeletePerson)
+	r.GET("/people/:id", handlers.GetPersonByID)
 	r.PUT("/people/:id", handlers.UpdatePerson)
+	r.PATCH("/people/:id", handlers.PatchPerson)
+	r.DELETE("/people/:id", handlers.DeletePerson)
 
-	log.Logger.Info("Server running on port 8086")
-	r.Run(":8086")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8086"
+	}
+	log.Logger.Info("Server running on port " + port)
+	if err := r.Run(":" + port); err != nil {
+		log.Logger.Fatal("Server stopped: ", err)
+	}
 }

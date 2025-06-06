@@ -3,60 +3,67 @@ package services
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"time"
 
 	log "go-people-api/log"
 	"go-people-api/models"
 )
 
-var httpGet = http.Get
+func fetchJSON(url string) (map[string]interface{}, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var res map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
 
 func Enrich(name string) (*models.Person, error) {
 	log.Logger.Debug("Starting enrichment for name: ", name)
-	e := &models.Person{}
+	person := &models.Person{}
 
 	// Age
-	if resp, err := httpGet("https://api.agify.io/?name=" + name); err == nil {
-		defer resp.Body.Close()
-		var res map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&res)
+	if res, err := fetchJSON(os.Getenv("AGE_API") + "?name=" + name); err == nil {
 		if age, ok := res["age"].(float64); ok {
-			e.Age = int(age)
+			person.Age = int(age)
 		}
-		log.Logger.Debug("Age fetched: ", e.Age)
+		log.Logger.Debug("Age fetched: ", person.Age)
 	} else {
 		log.Logger.Warn("Failed to fetch age: ", err)
 	}
 
 	// Gender
-	if resp, err := httpGet("https://api.genderize.io/?name=" + name); err == nil {
-		defer resp.Body.Close()
-		var res map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&res)
+	if res, err := fetchJSON(os.Getenv("GENDER_API") + "?name=" + name); err == nil {
 		if gender, ok := res["gender"].(string); ok {
-			e.Gender = gender
+			person.Gender = gender
 		}
-		log.Logger.Debug("Gender fetched: ", e.Gender)
+		log.Logger.Debug("Gender fetched: ", person.Gender)
 	} else {
 		log.Logger.Warn("Failed to fetch gender: ", err)
 	}
 
 	// Nationality
-	if resp, err := httpGet("https://api.nationalize.io/?name=" + name); err == nil {
-		defer resp.Body.Close()
-		var res map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&res)
+	if res, err := fetchJSON(os.Getenv("NATIONALITY_API") + "?name=" + name); err == nil {
 		if countries, ok := res["country"].([]interface{}); ok && len(countries) > 0 {
 			if c, ok := countries[0].(map[string]interface{}); ok {
 				if id, ok := c["country_id"].(string); ok {
-					e.Nationality = id
+					person.Nationality = id
 				}
 			}
 		}
-		log.Logger.Debug("Nationality fetched: ", e.Nationality)
+		log.Logger.Debug("Nationality fetched: ", person.Nationality)
 	} else {
 		log.Logger.Warn("Failed to fetch nationality: ", err)
 	}
 
-	log.Logger.Info("Enrichment complete for ", name, ": ", *e)
-	return e, nil
+	log.Logger.Info("Enrichment complete for ", name, ": ", *person)
+	return person, nil
 }
