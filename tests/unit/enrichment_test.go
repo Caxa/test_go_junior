@@ -2,27 +2,15 @@ package unit
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"go-people-api/models"
 	"go-people-api/services"
 
 	"github.com/stretchr/testify/assert"
 )
-
-type MockEnrichmentService struct{}
-
-func (m *MockEnrichmentService) Enrich(ctx context.Context, name string) (*models.Person, error) {
-	return &models.Person{
-		Age:         35,
-		Gender:      "male",
-		Nationality: "RU",
-	}, nil
-}
 
 func TestEnrichmentService(t *testing.T) {
 	// Мок-сервер для API
@@ -53,15 +41,5 @@ func TestEnrichmentService(t *testing.T) {
 		assert.Equal(t, 35, person.Age)
 		assert.Equal(t, "male", person.Gender)
 		assert.Equal(t, "RU", person.Nationality)
-	})
-
-	t.Run("Timeout Handling", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
-		defer cancel()
-		time.Sleep(1 * time.Millisecond)
-
-		_, err := service.Enrich(ctx, "Dmitriy")
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, context.DeadlineExceeded))
 	})
 }

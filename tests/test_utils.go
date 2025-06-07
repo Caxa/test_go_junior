@@ -1,4 +1,4 @@
-package tests
+package unit
 
 import (
 	"context"
@@ -43,9 +43,6 @@ func SetupTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Применение миграций
-	// ...
 
 	return db
 }
