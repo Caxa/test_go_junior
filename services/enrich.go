@@ -4,28 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	log "go-people-api/log"
 	"go-people-api/models"
 )
 
-// Enricher определяет интерфейс для сервиса обогащения данных
-type Enricher interface {
-	Enrich(ctx context.Context, name string) (*models.Person, error)
-}
-
 type EnrichmentService struct {
-	client *http.Client
+	client         *http.Client
+	ageAPI         string
+	genderAPI      string
+	nationalityAPI string
 }
 
-// NewEnrichmentService создает новый экземпляр сервиса обогащения
-func NewEnrichmentService() *EnrichmentService {
+func NewEnrichmentService(ageAPI, genderAPI, nationalityAPI string) *EnrichmentService {
 	return &EnrichmentService{
 		client: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 3 * time.Second,
 			Transport: &http.Transport{
 				MaxIdleConns:        10,
 				IdleConnTimeout:     30 * time.Second,
@@ -34,10 +31,169 @@ func NewEnrichmentService() *EnrichmentService {
 				MaxIdleConnsPerHost: 5,
 			},
 		},
+		ageAPI:         ageAPI,
+		genderAPI:      genderAPI,
+		nationalityAPI: nationalityAPI,
 	}
 }
 
-// fetchAPI выполняет запрос к внешнему API и парсит JSON ответ
+func (s *EnrichmentService) Enrich(ctx context.Context, name string) (*models.Person, error) {
+	logger := log.WithContext(ctx)
+	logger.Infof("Starting enrichment for: %s", name)
+
+	person := &models.Person{}
+	errChan := make(chan error, 3)
+	resultChan := make(chan struct {
+		field string
+		value interface{}
+	}, 3)
+
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	// Параллельное выполнение запросов
+	go s.fetchAge(ctx, name, resultChan, errChan)
+	go s.fetchGender(ctx, name, resultChan, errChan)
+	go s.fetchNationality(ctx, name, resultChan, errChan)
+
+	// Обработка результатов
+	var errs []error
+	for i := 0; i < 3; i++ {
+		select {
+		case res := <-resultChan:
+			switch res.field {
+			case "age":
+				if age, ok := res.value.(int); ok {
+					person.Age = age
+				}
+			case "gender":
+				if gender, ok := res.value.(string); ok {
+					person.Gender = gender
+				}
+			case "nationality":
+				if nationality, ok := res.value.(string); ok {
+					person.Nationality = nationality
+				}
+			}
+		case err := <-errChan:
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		logger.Warnf("Partial enrichment errors: %v", errs)
+		return person, fmt.Errorf("partial enrichment failure (%d errors)", len(errs))
+	}
+
+	logger.Infof("Successfully enriched: %+v", person)
+	return person, nil
+}
+
+func (s *EnrichmentService) fetchAge(ctx context.Context, name string, resultChan chan<- struct {
+	field string
+	value interface{}
+}, errChan chan<- error) {
+	if s.ageAPI == "" {
+		errChan <- errors.New("age API not configured")
+		return
+	}
+
+	res, err := s.fetchAPI(ctx, s.ageAPI+"?name="+name)
+	if err != nil {
+		errChan <- fmt.Errorf("age API request failed: %w", err)
+		return
+	}
+
+	age, ok := res["age"]
+	if !ok {
+		errChan <- errors.New("age field missing in response")
+		return
+	}
+
+	ageFloat, ok := age.(float64)
+	if !ok {
+		errChan <- fmt.Errorf("invalid age type: %T", age)
+		return
+	}
+
+	resultChan <- struct {
+		field string
+		value interface{}
+	}{"age", int(ageFloat)}
+}
+
+func (s *EnrichmentService) fetchGender(ctx context.Context, name string, resultChan chan<- struct {
+	field string
+	value interface{}
+}, errChan chan<- error) {
+	if s.genderAPI == "" {
+		errChan <- errors.New("gender API not configured")
+		return
+	}
+
+	res, err := s.fetchAPI(ctx, s.genderAPI+"?name="+name)
+	if err != nil {
+		errChan <- fmt.Errorf("gender API request failed: %w", err)
+		return
+	}
+
+	gender, ok := res["gender"]
+	if !ok {
+		errChan <- errors.New("gender field missing in response")
+		return
+	}
+
+	genderStr, ok := gender.(string)
+	if !ok {
+		errChan <- fmt.Errorf("invalid gender type: %T", gender)
+		return
+	}
+
+	resultChan <- struct {
+		field string
+		value interface{}
+	}{"gender", genderStr}
+}
+
+func (s *EnrichmentService) fetchNationality(ctx context.Context, name string, resultChan chan<- struct {
+	field string
+	value interface{}
+}, errChan chan<- error) {
+	if s.nationalityAPI == "" {
+		errChan <- errors.New("nationality API not configured")
+		return
+	}
+
+	res, err := s.fetchAPI(ctx, s.nationalityAPI+"?name="+name)
+	if err != nil {
+		errChan <- fmt.Errorf("nationality API request failed: %w", err)
+		return
+	}
+
+	countries, ok := res["country"].([]interface{})
+	if !ok || len(countries) == 0 {
+		errChan <- errors.New("no country data in response")
+		return
+	}
+
+	country, ok := countries[0].(map[string]interface{})
+	if !ok {
+		errChan <- errors.New("invalid country format in response")
+		return
+	}
+
+	id, ok := country["country_id"].(string)
+	if !ok {
+		errChan <- errors.New("invalid country_id format in response")
+		return
+	}
+
+	resultChan <- struct {
+		field string
+		value interface{}
+	}{"nationality", id}
+}
+
 func (s *EnrichmentService) fetchAPI(ctx context.Context, url string) (map[string]interface{}, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -51,7 +207,7 @@ func (s *EnrichmentService) fetchAPI(ctx context.Context, url string) (map[strin
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("api returned non-200 status code")
+		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
 	}
 
 	var result map[string]interface{}
@@ -60,105 +216,4 @@ func (s *EnrichmentService) fetchAPI(ctx context.Context, url string) (map[strin
 	}
 
 	return result, nil
-}
-
-// Enrich обогащает данные о человеке через внешние API
-func (s *EnrichmentService) Enrich(ctx context.Context, name string) (*models.Person, error) {
-	logger := log.WithContext(ctx)
-	logger.Debugf("Starting enrichment for name: %s", name)
-
-	person := &models.Person{}
-	var errs []error
-
-	// Получаем возраст
-	if ageAPI := os.Getenv("AGE_API"); ageAPI != "" {
-		if age, err := s.getAge(ctx, ageAPI, name); err == nil {
-			person.Age = age
-			logger.Debugf("Age fetched: %d", age)
-		} else {
-			errs = append(errs, err)
-			logger.Warnf("Failed to fetch age: %v", err)
-		}
-	}
-
-	// Получаем пол
-	if genderAPI := os.Getenv("GENDER_API"); genderAPI != "" {
-		if gender, err := s.getGender(ctx, genderAPI, name); err == nil {
-			person.Gender = gender
-			logger.Debugf("Gender fetched: %s", gender)
-		} else {
-			errs = append(errs, err)
-			logger.Warnf("Failed to fetch gender: %v", err)
-		}
-	}
-
-	// Получаем национальность
-	if nationalityAPI := os.Getenv("NATIONALITY_API"); nationalityAPI != "" {
-		if nationality, err := s.getNationality(ctx, nationalityAPI, name); err == nil {
-			person.Nationality = nationality
-			logger.Debugf("Nationality fetched: %s", nationality)
-		} else {
-			errs = append(errs, err)
-			logger.Warnf("Failed to fetch nationality: %v", err)
-		}
-	}
-
-	if len(errs) > 0 {
-		return person, errors.Join(errs...)
-	}
-
-	logger.Infof("Enrichment complete for %s: %+v", name, person)
-	return person, nil
-}
-
-func (s *EnrichmentService) getAge(ctx context.Context, apiURL, name string) (int, error) {
-	res, err := s.fetchAPI(ctx, apiURL+"?name="+name)
-	if err != nil {
-		return 0, err
-	}
-
-	age, ok := res["age"].(float64)
-	if !ok {
-		return 0, errors.New("invalid age format in response")
-	}
-
-	return int(age), nil
-}
-
-func (s *EnrichmentService) getGender(ctx context.Context, apiURL, name string) (string, error) {
-	res, err := s.fetchAPI(ctx, apiURL+"?name="+name)
-	if err != nil {
-		return "", err
-	}
-
-	gender, ok := res["gender"].(string)
-	if !ok {
-		return "", errors.New("invalid gender format in response")
-	}
-
-	return gender, nil
-}
-
-func (s *EnrichmentService) getNationality(ctx context.Context, apiURL, name string) (string, error) {
-	res, err := s.fetchAPI(ctx, apiURL+"?name="+name)
-	if err != nil {
-		return "", err
-	}
-
-	countries, ok := res["country"].([]interface{})
-	if !ok || len(countries) == 0 {
-		return "", errors.New("no country data in response")
-	}
-
-	country, ok := countries[0].(map[string]interface{})
-	if !ok {
-		return "", errors.New("invalid country format in response")
-	}
-
-	id, ok := country["country_id"].(string)
-	if !ok {
-		return "", errors.New("invalid country_id format in response")
-	}
-
-	return id, nil
 }
