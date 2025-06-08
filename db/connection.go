@@ -19,7 +19,6 @@ var (
 func Init() error {
 	var initErr error
 	once.Do(func() {
-		// Проверка обязательных переменных окружения
 		requiredEnv := []string{"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
 		for _, env := range requiredEnv {
 			if os.Getenv(env) == "" {
@@ -41,19 +40,16 @@ func Init() error {
 			return
 		}
 
-		// Настройки пула соединений
 		DB.SetMaxOpenConns(25)
 		DB.SetMaxIdleConns(5)
 		DB.SetConnMaxLifetime(5 * time.Minute)
 		DB.SetConnMaxIdleTime(2 * time.Minute)
 
-		// Проверка подключения с таймаутом
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if initErr = DB.PingContext(ctx); initErr != nil {
 			initErr = fmt.Errorf("database ping failed: %w", initErr)
-			// Закрываем соединение при ошибке
 			_ = DB.Close()
 			DB = nil
 		}

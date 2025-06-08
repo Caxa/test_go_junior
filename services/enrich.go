@@ -51,12 +51,10 @@ func (s *EnrichmentService) Enrich(ctx context.Context, name string) (*models.Pe
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	// Параллельное выполнение запросов
 	go s.fetchAge(ctx, name, resultChan, errChan)
 	go s.fetchGender(ctx, name, resultChan, errChan)
 	go s.fetchNationality(ctx, name, resultChan, errChan)
 
-	// Обработка результатов
 	var errs []error
 	for i := 0; i < 3; i++ {
 		select {

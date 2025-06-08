@@ -22,18 +22,15 @@ import (
 func main() {
 	log.Init()
 
-	// Загрузка .env с проверкой ошибок
 	if err := loadEnvWithTimeout(5 * time.Second); err != nil {
 		log.Logger.Fatal("Failed to load environment variables: ", err)
 	}
 
-	// Инициализация БД с повторными попытками
 	if err := initDBWithRetry(5, 3*time.Second); err != nil {
 		log.Logger.Fatal("Failed to initialize database: ", err)
 	}
 	log.Logger.Info("Successfully connected to database")
 
-	// Проверка доступности внешних API
 	checkExternalAPIs()
 
 	enrichmentService := services.NewEnrichmentService(

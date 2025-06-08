@@ -42,7 +42,6 @@ func CreatePerson(c *gin.Context) {
 		return
 	}
 
-	// Валидация обязательных полей
 	if input.Name == "" || input.Surname == "" {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "validation_error",
@@ -51,16 +50,14 @@ func CreatePerson(c *gin.Context) {
 		return
 	}
 
-	// Обогащение данных
 	enriched, err := personService.Enrich(ctx, input.Name)
 	if err != nil {
 		log.WithContext(ctx).WithError(err).Warn("Partial enrichment failure")
-		// Продолжаем даже при частичном обогащении
+
 	}
 
 	result := mergePersonData(&input, enriched)
 
-	// Получаем соединение с БД
 	dbConn, err := db.GetDB()
 	if err != nil {
 		log.WithContext(ctx).WithError(err).Error("Failed to get DB connection")

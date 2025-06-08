@@ -21,7 +21,6 @@ func Init(config ...Config) {
 	Logger = logrus.New()
 	Logger.SetOutput(os.Stdout)
 
-	// Установка уровня логирования
 	logLevel := logrus.InfoLevel
 	if len(config) > 0 && config[0].Level != "" {
 		if level, err := logrus.ParseLevel(config[0].Level); err == nil {
@@ -34,7 +33,6 @@ func Init(config ...Config) {
 	}
 	Logger.SetLevel(logLevel)
 
-	// Установка формата
 	if len(config) > 0 && config[0].Format == "json" {
 		Logger.SetFormatter(&logrus.JSONFormatter{
 			TimestampFormat: "2006-01-02 15:04:05",
@@ -53,15 +51,16 @@ func Init(config ...Config) {
 		})
 	}
 
-	// Добавляем информацию о вызывающем коде
 	Logger.SetReportCaller(true)
 }
 
-// WithContext создает новую запись лога с контекстными полями
 func WithContext(ctx context.Context) *logrus.Entry {
+	if Logger == nil {
+		Logger = logrus.New()
+	}
+
 	fields := logrus.Fields{}
 
-	// Добавляем поля из контекста
 	if ctx != nil {
 		if requestID := ctx.Value("request_id"); requestID != nil {
 			fields["request_id"] = requestID
@@ -71,12 +70,11 @@ func WithContext(ctx context.Context) *logrus.Entry {
 		}
 	}
 
-	// Добавляем информацию о месте вызова
 	if pc, file, line, ok := runtime.Caller(1); ok {
-		fName := runtime.FuncForPC(pc).Name()
+		funcName := runtime.FuncForPC(pc).Name()
 		fields["file"] = file
 		fields["line"] = line
-		fields["func"] = fName[strings.LastIndex(fName, "/")+1:]
+		fields["func"] = funcName[strings.LastIndex(funcName, "/")+1:]
 	}
 
 	return Logger.WithFields(fields)
