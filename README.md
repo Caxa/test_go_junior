@@ -20,7 +20,7 @@ go run main.go
 
 Национальность	nationalize.io
 
----
+
 ## 🧪 Примеры REST-запросов 
 
 ### ✅ Добавление нового человека
@@ -39,13 +39,13 @@ curl -X POST http://localhost:8086/people \
 
 ![Alt text](image.png)
 
----
 ### 📄 Получение списка людей
 GET /people
 
 http://localhost:8086/people?name=Ivan&limit=2&offset=0
 
 ![Alt text](image-2.png)
+---
 
 ### ✏️ Обновление данных человека
 PUT /people/:id
@@ -59,6 +59,8 @@ curl -X PUT http://localhost:8086/people/1 \
     "patronymic": "Sergeevich"
   }'
 ![Alt text](image-3.png)
+
+---
 
 ### ❌ Удаление человека
 DELETE /people/:id
@@ -74,10 +76,15 @@ curl -X DELETE http://localhost:8086/people/1
 
 
 DB_HOST=localhost
+
 DB_PORT=5432
+
 DB_USER=postgres
+
 DB_PASSWORD=postgres
+
 DB_NAME=people
+
 
 ## 🧪 Тестирование
 
@@ -85,12 +92,19 @@ make test
 ![Alt text](image-13.png)
 
 📸 Галерея скриншотов 
+
 ✅ POST /people — добавление нового человека
+
 ✅ GET /people — получение списка с фильтрами и пагинацией
+
 ✅ PUT /people/:id — изменение данных
+
 ✅ DELETE /people/:id — удаление записи
+
 ✅ Обогащённый JSON-ответ
+
 ✅ Скриншот из Postman или cURL
+
 ---
 ## 📚 Swagger-документация
 Swagger будет доступен по адресу:
@@ -99,7 +113,7 @@ Swagger будет доступен по адресу:
 http://localhost:8086/swagger/index.html
 ![Alt text](image-6.png)
 
----
+
 
 ## 🗄️ База данных
 
